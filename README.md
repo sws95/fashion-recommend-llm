@@ -8,3 +8,6 @@ v3: 유저 로그인 + 히스토리 쌓이면 협업 필터링 추가
 이후 v2 끝나고 유저 데이터 쌓일 때까지 영화 같은 기본 추천 시스템 같이 병행
 
 conda로 가상환경 만들어서 시작
+// 환경에서 venv나 conda 하면 인식을 못 해서 추후 docker나 poetry 할 예정 일단 글로벌로 설치
+Fashion-Gen, maryland polyvore dataset은 유저 데이터가 없어서 
+유저 구매 히스토리 + 아이템 텍스트 설명 둘 다 있는 H&M Personalized Fashion Recommendations Kaggle로 변경
