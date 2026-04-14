@@ -7,3 +7,6 @@ v1: 자연어 입력 → LLM reranking → 추천 (지금 만들 것) v2: 이미
 
 conda로 가상환경 만들어서 시작 // 환경에서 venv나 conda 하면 인식을 못 해서 추후 docker나 poetry 할 예정 일단 글로벌로 설치 Fashion-Gen, maryland polyvore dataset은 유저 데이터가 없어서 유저 구매 히스토리 + 아이템 텍스트 설명 둘 다 있는 H&M Personalized Fashion Recommendations Kaggle로 변경
 gpt flash 2.5로 파인튜닝 했는데 왜 한자가 엄청 나오지...
+
+파인튜닝 했는데 한자가 나와서 100개에서 1000개 트라이
+그 와중에 api 키 올려서 api 새로 받는 중
