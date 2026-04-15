@@ -24,7 +24,7 @@ User Query / User History
 ## Roadmap
 - [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5 reranking + 한국어 추천 이유
 - [x] v1: 유저 히스토리 기반 추천
-- [ ] v1: Qwen2.5 한국어 파인튜닝
+- [x] v1: Qwen2.5 한국어 파인튜닝
 - [ ] v2: 이미지 추가 (멀티모달)
 - [ ] v3: 유저 로그인 + 협업 필터링
 - [ ] v4: 날씨/일정/장소 기반 오늘의 옷 추천
