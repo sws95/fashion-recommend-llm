@@ -24,5 +24,6 @@ User Query / User History
 - [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5 reranking + 한국어 추천 이유 파인튜닝 (텍스트 전용)
 - [x] v1: 유저 구매 이력 임베딩 평균 기반 개인화 추천
 - [x] v2: 멀티모달 전환 (Qwen3-VL-Embedding-2B + ChromaDB + 이미지 추가)
+- [x] v2: 멀티모달 한국어 추천 이유 추가
 - [ ] v3: 유저 로그인 + 협업 필터링
 - [ ] v4: 날씨/일정/장소 기반 오늘의 옷 추천
