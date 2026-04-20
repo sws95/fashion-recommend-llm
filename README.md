@@ -28,3 +28,5 @@ User Query / User History
 - [x] v3: 유저 협업 필터링
 - [ ] v3: 실제 유저 로그인
 - [ ] v4: 날씨/일정/장소 기반 오늘의 옷 추천
+
+![데모 화면](./demo_image.png)
