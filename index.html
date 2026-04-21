@@ -47,8 +47,13 @@
   .product-card .info { padding: 12px; }
   .product-card .rank { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.5px; margin-bottom: 4px; }
   .product-card .name { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 4px; line-height: 1.3; }
-  .product-card .meta { font-size: 12px; color: #aaa; }
-  .product-card .reason { font-size: 12px; color: #555; background: #f8f8f8; padding: 8px 10px; margin: 8px 12px 12px; border-radius: 6px; line-height: 1.5; border-left: 3px solid #111; }
+  .product-card .meta { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+  .score-box { padding: 8px 12px 10px; border-top: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 5px; }
+  .score-row { display: flex; align-items: center; justify-content: space-between; }
+  .score-label { font-size: 11px; color: #aaa; }
+  .score-bar-wrap { flex: 1; margin: 0 8px; height: 4px; background: #f0f0f0; border-radius: 2px; }
+  .score-bar { height: 4px; border-radius: 2px; background: #111; }
+  .score-val { font-size: 11px; color: #555; font-weight: 600; min-width: 36px; text-align: right; }
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; color: #ccc; }
   .empty-state .big { font-size: 48px; margin-bottom: 12px; }
   .empty-state p { font-size: 14px; }
@@ -56,7 +61,7 @@
   .spinner { width: 36px; height: 36px; border: 3px solid #f0f0f0; border-top-color: #111; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading p { font-size: 14px; color: #888; }
-  .badge-llm { display: inline-block; background: #111; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; margin-left: 8px; letter-spacing: 0.3px; }
+  .badge-rerank { display: inline-block; background: #111; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; margin-left: 8px; letter-spacing: 0.3px; }
   .error { background: #fff3f3; border: 1px solid #fcc; border-radius: 8px; padding: 16px; color: #c00; font-size: 14px; }
 </style>
 </head>
@@ -96,11 +101,11 @@
       <h2>옵션</h2>
       <div class="toggle-row">
         <div>
-          <span>LLM Reranking</span>
-          <small>AI가 결과를 분석하고 이유 설명 (약 16초)</small>
+          <span>Reranking</span>
+          <small>VL 모델이 이미지 기반으로 재정렬 (약 8초)</small>
         </div>
         <label class="toggle">
-          <input type="checkbox" id="use-llm">
+          <input type="checkbox" id="use-rerank">
           <span class="slider"></span>
         </label>
       </div>
@@ -137,17 +142,11 @@ function previewImage(input) {
 async function recommend() {
   const customerId = document.getElementById('customer-id').value.trim();
   const query = document.getElementById('query').value.trim();
-  const useLlm = document.getElementById('use-llm').checked;
+  const useRerank = document.getElementById('use-rerank').checked;
   const imgInput = document.getElementById('img-input');
 
-  if (!customerId) {
-    alert('유저 ID를 입력해주세요.');
-    return;
-  }
-  if (!query && !imgInput.files[0]) {
-    alert('텍스트 쿼리 또는 이미지를 입력해주세요.');
-    return;
-  }
+  if (!customerId) { alert('유저 ID를 입력해주세요.'); return; }
+  if (!query && !imgInput.files[0]) { alert('텍스트 쿼리 또는 이미지를 입력해주세요.'); return; }
 
   const btn = document.querySelector('.btn');
   btn.disabled = true;
@@ -156,7 +155,7 @@ async function recommend() {
   container.innerHTML = `
     <div class="loading">
       <div class="spinner"></div>
-      <p>${useLlm ? 'LLM 분석 중... (약 16초 소요)' : '추천 결과를 불러오는 중...'}</p>
+      <p>${useRerank ? 'Reranking 중... (약 8초 소요)' : '추천 결과를 불러오는 중...'}</p>
     </div>
   `;
 
@@ -164,33 +163,49 @@ async function recommend() {
     const formData = new FormData();
     formData.append('customer_id', customerId);
     if (query) formData.append('query', query);
-    formData.append('use_llm', useLlm);
+    formData.append('use_rerank', useRerank);
     if (imgInput.files[0]) formData.append('image', imgInput.files[0]);
 
     const res = await fetch(`${API}/recommend`, { method: 'POST', body: formData });
     if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
     const data = await res.json();
 
-    renderResults(data.results, useLlm);
+    renderResults(data.results, useRerank);
   } catch (e) {
-    container.innerHTML = `<div class="error">오류가 발생했습니다: ${e.message}<br>서버가 실행 중인지 확인해주세요.</div>`;
+    container.innerHTML = `<div class="error">오류: ${e.message}<br>서버가 실행 중인지 확인해주세요.</div>`;
   } finally {
     btn.disabled = false;
   }
 }
 
-function renderResults(results, useLlm) {
+function scoreBar(label, value, maxVal) {
+  const pct = maxVal > 0 ? Math.min((value / maxVal) * 100, 100) : 0;
+  return `
+    <div class="score-row">
+      <span class="score-label">${label}</span>
+      <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%"></div></div>
+      <span class="score-val">${value.toFixed(4)}</span>
+    </div>
+  `;
+}
+
+function renderResults(results, useRerank) {
   const container = document.getElementById('results-container');
   if (!results || results.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="big">&#128533;</div><p>추천 결과가 없습니다.</p></div>';
     return;
   }
 
-  const llmBadge = useLlm ? '<span class="badge-llm">LLM</span>' : '';
+  const badge = useRerank ? '<span class="badge-rerank">Reranked</span>' : '';
+
+  // score 최댓값 계산 (바 비율용)
+  const scoreKey1 = useRerank ? 'rerank_score' : 'emb_score';
+  const max1 = Math.max(...results.map(r => r.scores?.[scoreKey1] ?? 0));
+  const maxBpr = Math.max(...results.map(r => r.scores?.bpr_score ?? 0));
 
   let html = `
     <div class="results-header">
-      <h2>추천 결과 ${llmBadge}</h2>
+      <h2>추천 결과 ${badge}</h2>
       <span>${results.length}개 아이템</span>
     </div>
     <div class="product-grid">
@@ -198,17 +213,29 @@ function renderResults(results, useLlm) {
 
   results.forEach((item, i) => {
     const imgSrc = `${API}/image/${item.article_id}`;
-    const reasonHtml = item.reason ? `<div class="reason">${item.reason}</div>` : '';
+    const s = item.scores || {};
+
+    const scoreHtml = useRerank
+      ? `<div class="score-box">
+           ${scoreBar('Rerank', s.rerank_score ?? 0, max1)}
+           ${scoreBar('BPR', s.bpr_score ?? 0, maxBpr)}
+         </div>`
+      : `<div class="score-box">
+           ${scoreBar('Emb', s.emb_score ?? 0, max1)}
+           ${scoreBar('BPR', s.bpr_score ?? 0, maxBpr)}
+         </div>`;
+
     html += `
       <div class="product-card">
-        <img src="${imgSrc}" alt="${item.prod_name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <img src="${imgSrc}" alt="${item.prod_name}"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
         <div class="no-img" style="display:none;">이미지 없음</div>
         <div class="info">
           <div class="rank"># ${i + 1}</div>
           <div class="name">${item.prod_name}</div>
           <div class="meta">${item.product_type || ''} · ${item.colour || ''}</div>
         </div>
-        ${reasonHtml}
+        ${scoreHtml}
       </div>
     `;
   });

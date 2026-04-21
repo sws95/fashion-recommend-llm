@@ -209,8 +209,14 @@ def llm_rerank(query, image_bytes, metadatas, distances):
 
     print("generate 시작")
     with torch.no_grad():
-        output = instruct_model.generate(
-            **inputs, max_new_tokens=512, repetition_penalty=1.2
+        output =  instruct_model.generate(
+            **inputs,
+            max_new_tokens=256,      # 512 → 줄여라 (중요)
+            do_sample=False,        # sampling 끔
+            temperature=0.0,        
+            top_p=1.0,
+            repetition_penalty=1.1,
+            use_cache=True
         )
     print("generate 완료")
 
