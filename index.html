@@ -39,6 +39,8 @@
   .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
   .results-header h2 { font-size: 18px; font-weight: 600; }
   .results-header span { font-size: 13px; color: #888; }
+  .enriched-query { font-size: 12px; color: #888; margin-bottom: 16px; background: #f5f5f5; border-radius: 8px; padding: 10px 14px; }
+  .enriched-query strong { color: #555; }
   .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
   .product-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 12px; overflow: hidden; transition: transform 0.2s; }
   .product-card:hover { transform: translateY(-2px); }
@@ -83,8 +85,9 @@
 
     <div class="card">
       <h2>검색 조건</h2>
-      <label>텍스트 쿼리</label>
-      <textarea id="query" placeholder="예: blue floral dress, 파란 자켓..."></textarea>
+      <label>자연어 쿼리</label>
+      <!-- 플레이스홀더만 변경 -->
+      <textarea id="query" placeholder="예: 요즘 유행하는 서울 날씨에 맞는 코트, 내일 강남 야외 미팅에 입을 옷..."></textarea>
 
       <div style="margin-top: 16px;">
         <label>참고 이미지 (선택)</label>
@@ -162,7 +165,7 @@ async function recommend() {
   try {
     const formData = new FormData();
     formData.append('customer_id', customerId);
-    if (query) formData.append('query', query);
+    if (query) formData.append('natural_query', query); // query → natural_query
     formData.append('use_rerank', useRerank);
     if (imgInput.files[0]) formData.append('image', imgInput.files[0]);
 
@@ -198,7 +201,12 @@ function renderResults(results, useRerank) {
 
   const badge = useRerank ? '<span class="badge-rerank">Reranked</span>' : '';
 
-  // score 최댓값 계산 (바 비율용)
+  // 보강된 쿼리 표시
+  const enrichedQuery = results[0]?.enriched_query;
+  const enrichedHtml = enrichedQuery
+    ? `<div class="enriched-query"><strong>보강된 쿼리:</strong> ${enrichedQuery}</div>`
+    : '';
+
   const scoreKey1 = useRerank ? 'rerank_score' : 'emb_score';
   const max1 = Math.max(...results.map(r => r.scores?.[scoreKey1] ?? 0));
   const maxBpr = Math.max(...results.map(r => r.scores?.bpr_score ?? 0));
@@ -208,6 +216,7 @@ function renderResults(results, useRerank) {
       <h2>추천 결과 ${badge}</h2>
       <span>${results.length}개 아이템</span>
     </div>
+    ${enrichedHtml}
     <div class="product-grid">
   `;
 
