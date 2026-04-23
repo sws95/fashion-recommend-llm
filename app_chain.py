@@ -82,7 +82,8 @@ print("모델 로딩 완료")
 # ── LangChain 툴 정의 ─────────────────────────────────────
 @tool
 def get_weather_season(city: str) -> str:
-    """도시 이름을 받아 현재 기온과 추천 패션 시즌을 반환한다. 도시, 날씨, 계절 언급이 있을 때 호출한다."""
+    """도시 이름을 영어로 받아 현재 기온과 추천 패션 시즌을 반환한다.
+    city는 반드시 영어로 변환해서 전달할 것. 예: 서울→Seoul, 부산→Busan"""
     res  = requests.get(
         "https://api.openweathermap.org/data/2.5/weather",
         params={"q": city, "appid": OWM_API_KEY, "units": "metric"}
