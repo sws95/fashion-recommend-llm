@@ -1,32 +1,44 @@
-# LLM-based Fashion Recommendation System
-
-## Overview
-H&M 데이터셋 기반 패션 추천 시스템입니다. 자연어 쿼리와 유저 히스토리를 기반으로 개인화된 패션 아이템을 추천합니다.
-
-## Architecture
-User Query / User History  
-→ ChromaDB Retrieval (후보 20개)  
-→ 중복 제거 (후보 5개)  
-→ Qwen3-VL-2B-Instruct Reranking  
-→ 추천 결과 + 한국어 이유  
-
 ## Dataset
 - H&M Personalized Fashion Recommendations (Kaggle)
 - 105,542 items / 1,371,980 users / 31,788,324 transactions
+- BPR 학습: 862,724 users / 61,248 items / 2018~2020 구매 데이터
 
 ## Tech Stack
-- Python, PyTorch
-- Embedding: Qwen3-VL-Embedding-2B (multimodal)
-- Vector Search: ChromaDB
-- LLM: Qwen3-VL-2B-Instruct (local)
+- **Language**: Python, PyTorch
+- **Embedding**: Qwen3-VL-Embedding-2B (multimodal, text + image)
+- **Vector DB**: ChromaDB (105,542 items)
+- **Collaborative Filtering**: BPR (Bayesian Personalized Ranking)
+- **LLM Reranker**: Qwen3-VL-2B-Instruct (local)
+
+## Evaluation Results
+
+### Hybrid vs Baseline (Leave-one-out, 1,000 users, 105,542 items)
+| Model | HitRate@5 | HitRate@10 |
+|-------|-----------|------------|
+| BPR only | 0.005 | 0.010 |
+| Embedding only | 0.079 | 0.121 |
+| **Hybrid (alpha=0.3)** | **0.211** | **0.264** |
+
+> Embedding only 대비 Hybrid: HitRate@5 기준 **+167%** 향상
+
+### Embedding Ablation — CLIP vs Qwen3-VL (Leave-one-out, 1,000 users, 10,000 items)
+| Model | HitRate@5 | HitRate@10 |
+|-------|-----------|------------|
+| CLIP (fashion-clip) | 0.331 | 0.426 |
+| Qwen3-VL v1 (색깔 포함) | **0.489** | **0.600** |
+| Qwen3-VL v2 (색깔 제외) | 0.388 | 0.477 |
+
+> 텍스트 구성 ablation: 색깔 정보 포함 시 HitRate@5 기준 **+26%** 향상  
+> Qwen3-VL이 CLIP 대비 HitRate@5 기준 **+48%** 우세
 
 ## Roadmap
-- [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5 reranking + 한국어 추천 이유 파인튜닝 (텍스트 전용)
+- [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5 reranking (텍스트 전용)
 - [x] v1: 유저 구매 이력 임베딩 평균 기반 개인화 추천
-- [x] v2: 멀티모달 전환 (Qwen3-VL-Embedding-2B + ChromaDB + 이미지 추가)
-- [x] v2: 멀티모달 한국어 추천 이유 추가
-- [x] v3: 유저 협업 필터링
-- [ ] v3: 실제 유저 로그인
-- [ ] v4: 날씨/일정/장소 기반 오늘의 옷 추천
+- [x] v2: 멀티모달 전환 (Qwen3-VL-Embedding-2B + ChromaDB + 이미지)
+- [x] v2: 한국어 추천 이유 생성 (Qwen3-VL-2B-Instruct)
+- [x] v3: BPR 협업 필터링 + Hybrid reranking
+- [x] v3: CLIP vs Qwen3-VL embedding ablation 실험
+- [x] v3: 날씨/일정/장소 기반 오늘의 옷 추천
+- [ ] v4: 실제 유저 로그인 + 히스토리 수집
 
 ![데모 화면](./demo_image.png)
