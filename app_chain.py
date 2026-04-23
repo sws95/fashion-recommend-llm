@@ -46,7 +46,7 @@ ALPHA              = 0.3
 BETA               = 0.3
 N_CANDIDATES       = 10
 N_RESULTS          = 5
-OWM_API_KEY        = "YOUR_OPENWEATHERMAP_API_KEY"
+OWM_API_KEY        = config["OWM_API_KEY"]
 
 # ── 모델 로딩 ─────────────────────────────────────────────
 print("모델 로딩 중...")
@@ -87,6 +87,13 @@ def get_weather_season(city: str) -> str:
         "https://api.openweathermap.org/data/2.5/weather",
         params={"q": city, "appid": OWM_API_KEY, "units": "metric"}
     )
+    data = res.json()
+    print(data)  # 또는 logger.error(data)
+    
+    if "main" not in data:
+        raise ValueError(f"날씨 API 오류: {data}")
+    
+    temp = data["main"]["temp"]
     temp = res.json()["main"]["temp"]
     if temp >= 23:
         season = "summer"
