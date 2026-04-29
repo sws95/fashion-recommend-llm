@@ -37,6 +37,7 @@
 - [x] v2: 멀티모달 전환 (Qwen3-VL-Embedding-2B + ChromaDB + 이미지)
 - [x] v2: 한국어 추천 이유 생성 (Qwen3-VL-2B-Instruct)
 - [x] v3: BPR 협업 필터링 + Hybrid reranking
+- [x] v3: 콜드 스타트 처리
 - [x] v3: CLIP vs Qwen3-VL embedding ablation 실험
 - [x] v3: 날씨/일정/장소 기반 오늘의 옷 추천
 - [x] v4: NDCG@K, MRR 평가 지표 추가
