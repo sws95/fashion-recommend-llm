@@ -49,7 +49,8 @@
   .product-card .info { padding: 12px; }
   .product-card .rank { font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.5px; margin-bottom: 4px; }
   .product-card .name { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 4px; line-height: 1.3; }
-  .product-card .meta { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+  .product-card .meta { font-size: 12px; color: #aaa; margin-bottom: 6px; }
+  .product-card .desc { font-size: 11px; color: #888; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .score-box { padding: 8px 12px 10px; border-top: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 5px; }
   .score-row { display: flex; align-items: center; justify-content: space-between; }
   .score-label { font-size: 11px; color: #aaa; }
@@ -64,7 +65,11 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading p { font-size: 14px; color: #888; }
   .badge-rerank { display: inline-block; background: #111; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; margin-left: 8px; letter-spacing: 0.3px; }
+  .badge-sasrec { display: inline-block; background: #4a6cf7; color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; margin-left: 8px; letter-spacing: 0.3px; }
   .error { background: #fff3f3; border: 1px solid #fcc; border-radius: 8px; padding: 16px; color: #c00; font-size: 14px; }
+  .related-section { margin-top: 32px; }
+  .related-section .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .related-section .section-title span { font-size: 12px; color: #888; font-weight: 400; }
 </style>
 </head>
 <body>
@@ -86,7 +91,6 @@
     <div class="card">
       <h2>검색 조건</h2>
       <label>자연어 쿼리</label>
-      <!-- 플레이스홀더만 변경 -->
       <textarea id="query" placeholder="예: 요즘 유행하는 서울 날씨에 맞는 코트, 내일 강남 야외 미팅에 입을 옷..."></textarea>
 
       <div style="margin-top: 16px;">
@@ -125,6 +129,7 @@
         <p>검색 조건을 입력하고 추천받기를 클릭하세요</p>
       </div>
     </div>
+    <div id="related-container"></div>
   </div>
 </div>
 
@@ -144,9 +149,9 @@ function previewImage(input) {
 
 async function recommend() {
   const customerId = document.getElementById('customer-id').value.trim();
-  const query = document.getElementById('query').value.trim();
-  const useRerank = document.getElementById('use-rerank').checked;
-  const imgInput = document.getElementById('img-input');
+  const query      = document.getElementById('query').value.trim();
+  const useRerank  = document.getElementById('use-rerank').checked;
+  const imgInput   = document.getElementById('img-input');
 
   if (!customerId) { alert('유저 ID를 입력해주세요.'); return; }
   if (!query && !imgInput.files[0]) { alert('텍스트 쿼리 또는 이미지를 입력해주세요.'); return; }
@@ -154,26 +159,39 @@ async function recommend() {
   const btn = document.querySelector('.btn');
   btn.disabled = true;
 
-  const container = document.getElementById('results-container');
+  const container        = document.getElementById('results-container');
+  const relatedContainer = document.getElementById('related-container');
+
   container.innerHTML = `
     <div class="loading">
       <div class="spinner"></div>
       <p>${useRerank ? 'Reranking 중... (약 8초 소요)' : '추천 결과를 불러오는 중...'}</p>
     </div>
   `;
+  relatedContainer.innerHTML = '';
 
   try {
+    // 메인 추천
     const formData = new FormData();
     formData.append('customer_id', customerId);
-    if (query) formData.append('natural_query', query); // query → natural_query
+    if (query) formData.append('natural_query', query);
     formData.append('use_rerank', useRerank);
     if (imgInput.files[0]) formData.append('image', imgInput.files[0]);
 
     const res = await fetch(`${API}/recommend`, { method: 'POST', body: formData });
     if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
     const data = await res.json();
-
     renderResults(data.results, useRerank);
+
+    // SASRec 연관 추천 (비동기로 따로 호출)
+    const relatedFormData = new FormData();
+    relatedFormData.append('customer_id', customerId);
+    const relatedRes = await fetch(`${API}/recommend/related`, { method: 'POST', body: relatedFormData });
+    if (relatedRes.ok) {
+      const relatedData = await relatedRes.json();
+      renderRelated(relatedData.results);
+    }
+
   } catch (e) {
     container.innerHTML = `<div class="error">오류: ${e.message}<br>서버가 실행 중인지 확인해주세요.</div>`;
   } finally {
@@ -201,15 +219,14 @@ function renderResults(results, useRerank) {
 
   const badge = useRerank ? '<span class="badge-rerank">Reranked</span>' : '';
 
-  // 보강된 쿼리 표시
   const enrichedQuery = results[0]?.enriched_query;
-  const enrichedHtml = enrichedQuery
+  const enrichedHtml  = enrichedQuery
     ? `<div class="enriched-query"><strong>보강된 쿼리:</strong> ${enrichedQuery}</div>`
     : '';
 
   const scoreKey1 = useRerank ? 'rerank_score' : 'emb_score';
-  const max1 = Math.max(...results.map(r => r.scores?.[scoreKey1] ?? 0));
-  const maxBpr = Math.max(...results.map(r => r.scores?.bpr_score ?? 0));
+  const max1      = Math.max(...results.map(r => r.scores?.[scoreKey1] ?? 0));
+  const maxBpr    = Math.max(...results.map(r => r.scores?.bpr_score ?? 0));
 
   let html = `
     <div class="results-header">
@@ -222,17 +239,21 @@ function renderResults(results, useRerank) {
 
   results.forEach((item, i) => {
     const imgSrc = `${API}/image/${item.article_id}`;
-    const s = item.scores || {};
+    const s      = item.scores || {};
 
     const scoreHtml = useRerank
       ? `<div class="score-box">
            ${scoreBar('Rerank', s.rerank_score ?? 0, max1)}
-           ${scoreBar('BPR', s.bpr_score ?? 0, maxBpr)}
+           ${scoreBar('BPR',    s.bpr_score    ?? 0, maxBpr)}
          </div>`
       : `<div class="score-box">
            ${scoreBar('Emb', s.emb_score ?? 0, max1)}
            ${scoreBar('BPR', s.bpr_score ?? 0, maxBpr)}
          </div>`;
+
+    const descHtml = item.description
+      ? `<div class="desc">${item.description}</div>`
+      : '';
 
     html += `
       <div class="product-card">
@@ -243,6 +264,7 @@ function renderResults(results, useRerank) {
           <div class="rank"># ${i + 1}</div>
           <div class="name">${item.prod_name}</div>
           <div class="meta">${item.product_type || ''} · ${item.colour || ''}</div>
+          ${descHtml}
         </div>
         ${scoreHtml}
       </div>
@@ -250,6 +272,40 @@ function renderResults(results, useRerank) {
   });
 
   html += '</div>';
+  container.innerHTML = html;
+}
+
+function renderRelated(results) {
+  const container = document.getElementById('related-container');
+  if (!results || results.length === 0) return;
+
+  let html = `
+    <div class="related-section">
+      <div class="section-title">
+        이런 것도 어떠세요?
+        <span class="badge-sasrec">SASRec</span>
+        <span>구매 시퀀스 기반 다음 추천</span>
+      </div>
+      <div class="product-grid">
+  `;
+
+  results.forEach((item, i) => {
+    const imgSrc = `${API}/image/${item.article_id}`;
+    html += `
+      <div class="product-card">
+        <img src="${imgSrc}" alt="${item.prod_name}"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <div class="no-img" style="display:none;">이미지 없음</div>
+        <div class="info">
+          <div class="rank"># ${i + 1}</div>
+          <div class="name">${item.prod_name}</div>
+          <div class="meta">${item.product_type || ''} · ${item.colour || ''}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div></div>';
   container.innerHTML = html;
 }
 </script>
