@@ -67,6 +67,7 @@
 > BPR/Embedding과 태스크가 달라 직접 비교 불가. SASRec은 시퀀스 기반 다음 구매 예측,  
 > BPR/Embedding은 유저 취향 기반 추천으로 역할이 다름.  
 > SASRec은 연관 추천("이런 것도 어떠세요?") 섹션에 별도 활용.
+> 쿼리 맥락 반영을 위해 SASRec top50 후보에서 쿼리 임베딩 유사도로 재정렬하는 hybrid 구조 적용.
 
 ## Roadmap
 - [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5 reranking (텍스트 전용)
