@@ -39,10 +39,9 @@
 - [x] v3: BPR 협업 필터링 + Hybrid reranking
 - [x] v3: CLIP vs Qwen3-VL embedding ablation 실험
 - [x] v3: 날씨/일정/장소 기반 오늘의 옷 추천
+- [x] v4: NDCG@K, MRR 평가 지표 추가
 - [ ] v4: SASRec 기반 시퀀스 모델 도입 및 BPR 성능 비교
 - [ ] v4: Hard negative mining (in-batch negatives) 적용
-- [ ] v4: NDCG@K, MRR 평가 지표 추가
-- [ ] v4: 콜드 스타트 처리 (인기도 기반 fallback + 카테고리 초기 추천)
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집
 
 ![데모 화면](./demo_image.png)
