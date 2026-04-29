@@ -86,3 +86,4 @@
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집
 
 ![데모 화면](./demo_image.png)
+![데모_SASREC_화면](./next_image.png)
