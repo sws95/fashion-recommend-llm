@@ -79,9 +79,9 @@
 - [x] v3: 날씨/일정/장소 기반 오늘의 옷 추천 (LangChain Agent)
 - [x] v4: NDCG@K, MRR 평가 지표 추가
 - [x] v4: SASRec 기반 시퀀스 모델 도입 → 연관 추천 섹션 활용
-- [x] v4: Reranker 128×128 최적화 (16초 → 3.2초)
-- [x] v4: 인기 편향 완화 (popularity^0.1 패널티 + epsilon-greedy exploration)
 - [x] v4: 추천 이유 생성 → article description으로 대체 (VRAM 제약 및 latency 최적화)
+- [x] v4: Reranker 128×128 최적화 (16초 → 3.2초)
+- [x] v4: 인기 편향 완화 (popularity^0.01 패널티 + epsilon-greedy exploration)
 - [ ] v4: Hard negative mining 적용
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집
 
