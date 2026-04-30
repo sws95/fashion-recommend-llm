@@ -88,6 +88,6 @@
 - [x] v5: Airflow DAG 기반 재학습 파이프라인 자동화 (신규 데이터 → BPR 재학습 → 평가 → 모델 교체)
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집, Hard negative mining 적용
 
-![데모 화면](./demo_image.png)
-![데모_SASREC_화면](./next_image.png)
-![mlflow_화면](./mlflow_image.png)
+![데모 화면](./img/demo_image.png)
+![데모_SASREC_화면](./img/next_image.png)
+![mlflow_화면](./img/mlflow_image.png)
