@@ -1,0 +1,49 @@
+services:
+  fashion-recommend:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app_chain.py:/app/app_chain.py
+      - ./sasrec.py:/app/sasrec.py
+      - ./index.html:/app/index.html
+      - ./Qwen3-VL-Embedding-2B:/app/Qwen3-VL-Embedding-2B
+      - ./Qwen3-VL-Reranker-2B:/app/Qwen3-VL-Reranker-2B
+      - ./scripts:/app/scripts
+      - ./chroma_db:/app/chroma_db
+      - ./images:/app/images
+      - ./bpr_model.pkl:/app/bpr_model.pkl
+      - ./sasrec_model.pkl:/app/sasrec_model.pkl
+      - ./articles.csv:/app/articles.csv
+      - ./config.json:/app/config.json
+      - ./mlruns:/app/mlruns
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=fashion-recsys-secret
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./transactions_train.csv:/opt/airflow/transactions_train.csv
+      - ./bpr_model.pkl:/opt/airflow/bpr_model.pkl
+      - ./airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "airflow db init &&
+               airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@example.com &&
+               airflow webserver & airflow scheduler"
+    restart: unless-stopped
