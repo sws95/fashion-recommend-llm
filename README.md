@@ -83,8 +83,11 @@
 - [x] v4: 추천 이유 생성 → article description으로 대체 (VRAM 제약 및 latency 최적화)
 - [x] v4: Reranker 128×128 최적화 (16초 → 3.2초)
 - [x] v4: 인기 편향 완화 (popularity^0.01 패널티 + epsilon-greedy exploration)
-- [ ] v4: Hard negative mining 적용
-- [ ] v?: 실제 유저 로그인 + 히스토리 수집
+- [x] v5: MLflow 실험 추적 (alpha/k 조합별 HitRate, NDCG, MRR 기록)
+- [x] v5: Docker 컨테이너화 (CUDA 12.6 기반 GPU 서빙 환경 구축)
+- [x] v5: Airflow DAG 기반 재학습 파이프라인 자동화 (신규 데이터 → BPR 재학습 → 평가 → 모델 교체)
+- [ ] v?: 실제 유저 로그인 + 히스토리 수집, Hard negative mining 적용
 
 ![데모 화면](./demo_image.png)
 ![데모_SASREC_화면](./next_image.png)
+![mlflow_화면](./mlflow_image.png)
