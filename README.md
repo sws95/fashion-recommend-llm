@@ -85,7 +85,7 @@
 - [x] v4: 인기 편향 완화 (popularity^0.01 패널티 + epsilon-greedy exploration)
 - [x] v5: MLflow 실험 추적 (alpha/k 조합별 HitRate, NDCG, MRR 기록)
 - [x] v5: Docker 컨테이너화 (CUDA 12.6 기반 GPU 서빙 환경 구축)
-- [ ] v5: Airflow DAG 기반 재학습 파이프라인 자동화 (신규 데이터 → BPR 재학습 → 평가 → 모델 교체)
+- [x] v5: Airflow DAG 기반 재학습 파이프라인 자동화 (신규 데이터 → BPR 재학습 → 평가 → 모델 교체)
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집, Hard negative mining 적용
 
 ![데모 화면](./demo_image.png)
