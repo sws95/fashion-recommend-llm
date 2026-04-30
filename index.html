@@ -186,6 +186,7 @@ async function recommend() {
     // SASRec 연관 추천 (비동기로 따로 호출)
     const relatedFormData = new FormData();
     relatedFormData.append('customer_id', customerId);
+    if (query) relatedFormData.append('natural_query', query);  // 쿼리 추가
     const relatedRes = await fetch(`${API}/recommend/related`, { method: 'POST', body: relatedFormData });
     if (relatedRes.ok) {
       const relatedData = await relatedRes.json();

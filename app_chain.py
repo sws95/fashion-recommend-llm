@@ -20,9 +20,9 @@ from fastapi.responses import JSONResponse
 from scripts.qwen3_vl_embedding import Qwen3VLEmbedder
 from scripts.qwen3_vl_reranker import Qwen3VLReranker
 from sasrec import SASRec  # 클래스 정의 대신 import
-from langchain.tools import tool
+from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.tavily_search import TavilySearchResults
 import json
@@ -51,6 +51,7 @@ N_RESULTS          = 5
 N_RELATED          = 5
 MAX_SEQ_LEN        = 50
 POP_ALPHA          = 0.01
+SASREC_ALPHA       = 0.1  # 상수에 추가
 EPSILON            = 0.1
 OWM_API_KEY        = config["OWM_API_KEY"]
 
@@ -426,7 +427,10 @@ async def recommend(
 
 # ── SASRec 연관 추천 엔드포인트 ──────────────────────────
 @app.post("/recommend/related")
-async def recommend_related(customer_id: str = Form(...)):
+async def recommend_related(
+    customer_id: str = Form(...),
+    natural_query: Optional[str] = Form(None)
+):
     if customer_id not in sasrec_seq_str:
         return JSONResponse({"results": [], "message": "구매 이력 없음"})
 
@@ -437,19 +441,48 @@ async def recommend_related(customer_id: str = Form(...)):
 
     seq_tensor = torch.tensor([seq], dtype=torch.long).to(device)
 
+    # SASRec 전체 스코어 → top50
     t = time.time()
     with torch.no_grad():
-        scores = sasrec_model.predict(seq_tensor, all_item_tensor)[0].cpu().numpy()
-    print(f"[시간] SASRec 추론: {time.time()-t:.2f}초")
+        sasrec_scores = sasrec_model.predict(seq_tensor, all_item_tensor)[0].cpu().numpy()
 
-    purchased   = train_user_items.get(customer_id, set())
-    top_indices = scores.argsort()[::-1]
+    purchased    = train_user_items.get(customer_id, set())
+    top50_indices = []
+    for idx in sasrec_scores.argsort()[::-1]:
+        aid = sasrec_idx2item.get(idx + 1)
+        if aid and aid not in purchased:
+            top50_indices.append((idx, aid))
+        if len(top50_indices) == 50:
+            break
+
+    # 쿼리 임베딩 유사도 계산
+    if natural_query:
+        inp       = {"instruction": EMBED_INSTRUCTION, "text": natural_query}
+        query_emb = embedding_model.process([inp])
+
+        candidate_ids = [aid for _, aid in top50_indices]
+        chroma_results = collection.query(
+            query_embeddings=query_emb.tolist(),
+            n_results=50,
+            where={"article_id": {"$in": candidate_ids}}
+        )
+        emb_score_map = {
+            m['article_id']: 1 - d
+            for m, d in zip(chroma_results['metadatas'][0], chroma_results['distances'][0])
+        }
+
+        # SASRec + 쿼리 임베딩 합산
+        sasrec_arr = np.array([sasrec_scores[idx] for idx, _ in top50_indices])
+        emb_arr    = np.array([emb_score_map.get(aid, 0.0) for _, aid in top50_indices])
+
+        final_scores = SASREC_ALPHA * normalize(sasrec_arr) + (1 - SASREC_ALPHA) * normalize(emb_arr)
+        ranked_indices = np.argsort(final_scores)[::-1]
+        top50_indices  = [top50_indices[i] for i in ranked_indices]
+
+    
 
     results = []
-    for idx in top_indices:
-        aid = sasrec_idx2item.get(idx + 1)
-        if aid is None or aid in purchased:
-            continue
+    for _, aid in top50_indices:
         info = article_info.get(aid, {})
         results.append({
             "article_id":   aid,
@@ -460,8 +493,15 @@ async def recommend_related(customer_id: str = Form(...)):
         })
         if len(results) == N_RELATED:
             break
+    # 서버 로그에서 확인
+    # /recommend/related 호출할 때 이거 추가
 
-    print(f"[시간] SASRec 연관 추천 전체: {time.time()-t:.2f}초")
+    print(f"top50 아이템 수: {len(top50_indices)}")
+    print(f"쿼리 임베딩 결과 수: {len(chroma_results['metadatas'][0])}")
+    print(f"emb_score_map 키 수: {len(emb_score_map)}")
+    print(f"emb 0.0인 아이템 수: {sum(1 for _, aid in top50_indices if emb_score_map.get(aid, 0.0) == 0.0)}")    
+    print(f"[시간] SASRec 연관 추천: {time.time()-t:.2f}초")
+    
     return JSONResponse({"results": results})
 
 @app.get("/image/{article_id}")
