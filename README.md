@@ -6,7 +6,7 @@
 ## Tech Stack
 - **Language**: Python, PyTorch
 - **Embedding**: Qwen3-VL-Embedding-2B (multimodal, text + image)
-- **Vector DB**: ChromaDB (105,542 items)
+- **Vector DB**: ChromaDB (105,542 items, 256×256)
 - **Collaborative Filtering**: BPR (Bayesian Personalized Ranking), SASRec (Sequential)
 - **VL Reranker**: Qwen3-VL-Reranker-2B (local, 128×128 최적화) + article description 기반 추천 이유 제공
 - **Query Agent**: LangChain + Gemini 2.5 Flash (날씨/트렌드/일정 툴 호출)
