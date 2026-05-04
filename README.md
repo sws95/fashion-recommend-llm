@@ -71,7 +71,7 @@
 
 ## Roadmap
 - [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5-3B-Instruct (reranking + 한국어 추천 이유)
-- [x] v1: Qwen2.5-3B-Instruct KoAlpaca 기반 한국어 파인튜닝
+- [x] v1: Qwen2.5-3B-Instruct KoAlpaca 기반 한국어 LoRA 파인튜닝
 - [x] v1: 유저 구매 이력 임베딩 평균 기반 개인화 추천
 - [x] v2: 멀티모달 전환 (Qwen3-VL-Embedding-2B + ChromaDB + 이미지)
 - [x] v2: 한국어 추천 이유 생성 (Qwen3-VL-2B-Instruct)
