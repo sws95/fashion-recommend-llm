@@ -5,7 +5,6 @@ sys.path.append("./Qwen3-VL-Reranker-2B")
 import os
 import time
 import torch
-import torch.nn as nn
 import chromadb
 import numpy as np
 import pandas as pd
@@ -25,6 +24,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.tavily_search import TavilySearchResults
+from rank_bm25 import BM25Okapi
 import json
 
 with open('./config.json', 'r') as f:
@@ -54,40 +54,7 @@ POP_ALPHA          = 0.01
 SASREC_ALPHA       = 0.1  # 상수에 추가
 EPSILON            = 0.1
 OWM_API_KEY        = config["OWM_API_KEY"]
-
-# ── SASRec 모델 정의 ──────────────────────────────────────
-class SASRec(nn.Module):
-    def __init__(self, n_items, embed_dim, n_heads, n_layers, max_len, dropout):
-        super().__init__()
-        self.item_emb = nn.Embedding(n_items, embed_dim, padding_idx=0)
-        self.pos_emb  = nn.Embedding(max_len, embed_dim)
-        self.dropout  = nn.Dropout(dropout)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=embed_dim, nhead=n_heads,
-            dim_feedforward=embed_dim * 4, dropout=dropout, batch_first=True,
-        )
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
-        self.norm        = nn.LayerNorm(embed_dim)
-
-    def forward(self, seq):
-        batch_size, seq_len = seq.shape
-        pos = torch.arange(seq_len, device=seq.device).unsqueeze(0).expand(batch_size, -1)
-        x   = self.item_emb(seq) + self.pos_emb(pos)
-        x   = self.dropout(x)
-        pad_mask    = (seq == 0)
-        causal_mask = torch.triu(
-            torch.ones(seq_len, seq_len, device=seq.device), diagonal=1
-        ).bool()
-        x = self.transformer(x, mask=causal_mask, src_key_padding_mask=pad_mask)
-        x = self.norm(x)
-        last_idx = (seq != 0).sum(dim=1) - 1
-        last_idx = last_idx.clamp(min=0)
-        return x[torch.arange(batch_size), last_idx]
-
-    def predict(self, seq, item_indices):
-        user_emb = self.forward(seq)
-        item_emb = self.item_emb(item_indices)
-        return (user_emb.unsqueeze(1) * item_emb).sum(-1)
+BM25_ALPHA = 0.2
 
 # ── 모델 로딩 ─────────────────────────────────────────────
 print("모델 로딩 중...")
@@ -107,6 +74,15 @@ reranker_model = Qwen3VLReranker(
 
 client     = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_collection("fashion_items")
+
+
+print("BM25 모델 로딩...")
+with open('./bm25_model.pkl', 'rb') as f:
+    bm25_data = pickle.load(f)
+bm25_model      = bm25_data['model']
+bm25_article_ids = bm25_data['article_ids']
+bm25_id2idx     = {aid: idx for idx, aid in enumerate(bm25_article_ids)}
+
 
 with open('./bpr_model.pkl', 'rb') as f:
     bpr_data = pickle.load(f)
@@ -271,8 +247,19 @@ def get_candidates(query, image_bytes, customer_id, n_retrieve=50):
 
     metadatas = results['metadatas'][0]
     distances = results['distances'][0]
-
     purchased = train_user_items.get(customer_id, set())
+
+    # BM25 점수 계산
+    bm25_scores_map = {}
+    if query:
+        t_bm25 = time.time()
+        query_tokens = query.lower().split()
+        bm25_raw = bm25_model.get_scores(query_tokens)
+        for meta in metadatas:
+            aid = meta['article_id']
+            idx = bm25_id2idx.get(aid)
+            bm25_scores_map[aid] = float(bm25_raw[idx]) if idx is not None else 0.0
+        print(f"[시간] BM25 스코어링: {time.time()-t_bm25:.2f}초")
 
     if customer_id in bpr_dataset.uid_map:
         t3 = time.time()
@@ -284,18 +271,22 @@ def get_candidates(query, image_bytes, customer_id, n_retrieve=50):
             aid = meta['article_id']
             if aid in purchased:
                 continue
-            emb_score = 1 - dist
-            # BPR 없는 아이템은 min값으로
-            bpr_score = float(item_scores[bpr_dataset.iid_map[aid]]) \
-                        if aid in bpr_dataset.iid_map else float(item_scores.min())
-            candidates.append((meta, emb_score, bpr_score))
+            emb_score  = 1 - dist
+            bpr_score  = float(item_scores[bpr_dataset.iid_map[aid]]) \
+                         if aid in bpr_dataset.iid_map else float(item_scores.min())
+            bm25_score = bm25_scores_map.get(aid, 0.0)
+            candidates.append((meta, emb_score, bpr_score, bm25_score))
 
         if candidates:
             emb_arr  = np.array([c[1] for c in candidates])
             bpr_arr  = np.array([c[2] for c in candidates])
+            bm25_arr = np.array([c[3] for c in candidates])
 
-            # 순수 hybrid score
-            scores = ALPHA * normalize(emb_arr) + (1 - ALPHA) * normalize(bpr_arr)
+            scores = (
+                (1 - ALPHA - BM25_ALPHA) * normalize(emb_arr)
+                + ALPHA * normalize(bpr_arr)
+                + BM25_ALPHA * normalize(bm25_arr)
+            )
             ranked = list(np.argsort(scores)[::-1])
 
             # 4등: 확률적으로 popularity 패널티 적용 1등
@@ -313,17 +304,21 @@ def get_candidates(query, image_bytes, customer_id, n_retrieve=50):
                 if explore_idx not in ranked[:4]:
                     ranked[4] = explore_idx
 
-            norm_emb = normalize(emb_arr)
-            norm_bpr = normalize(bpr_arr)
+            norm_emb  = normalize(emb_arr)
+            norm_bpr  = normalize(bpr_arr)
+            norm_bm25 = normalize(bm25_arr)
             for i in ranked[:N_CANDIDATES]:
-                print(f"{candidates[i][0]['prod_name'][:20]:20s} | emb={candidates[i][1]:.4f} bpr={candidates[i][2]:.4f} | norm_emb={norm_emb[i]:.4f} norm_bpr={norm_bpr[i]:.4f} | final={scores[i]:.4f}")
-            print(f"[시간] BPR 스코어링: {time.time()-t3:.2f}초")
+                print(f"{candidates[i][0]['prod_name'][:20]:20s} | emb={candidates[i][1]:.4f} bpr={candidates[i][2]:.4f} bm25={candidates[i][3]:.4f} | norm_emb={norm_emb[i]:.4f} norm_bpr={norm_bpr[i]:.4f} norm_bm25={norm_bm25[i]:.4f} | final={scores[i]:.4f}")
+            print(f"[시간] BPR+BM25 스코어링: {time.time()-t3:.2f}초")
             print(f"[시간] 후보 검색 전체: {time.time()-t:.2f}초")
             return [candidates[i] for i in ranked[:N_CANDIDATES]]
 
-    filtered = [(m, 1 - d, float(item_scores.min()) if customer_id in bpr_dataset.uid_map else 0.0)
-                for m, d in zip(metadatas, distances)
-                if m['article_id'] not in purchased][:N_CANDIDATES]
+    # BPR 없는 유저 fallback
+    filtered = [
+        (m, 1 - d, 0.0, bm25_scores_map.get(m['article_id'], 0.0))
+        for m, d in zip(metadatas, distances)
+        if m['article_id'] not in purchased
+    ][:N_CANDIDATES]
     print(f"[시간] 후보 검색 전체: {time.time()-t:.2f}초")
     return filtered
 
