@@ -6,7 +6,7 @@
 ## Tech Stack
 - **Language**: Python, PyTorch
 - **Embedding**: Qwen3-VL-Embedding-2B (multimodal, text + image)
-- **Vector DB**: ChromaDB (105,542 items)
+- **Vector DB**: ChromaDB (105,542 items, 256×256)
 - **Collaborative Filtering**: BPR (Bayesian Personalized Ranking), SASRec (Sequential)
 - **VL Reranker**: Qwen3-VL-Reranker-2B (local, 128×128 최적화) + article description 기반 추천 이유 제공
 - **Query Agent**: LangChain + Gemini 2.5 Flash (날씨/트렌드/일정 툴 호출)
@@ -70,7 +70,8 @@
 > 쿼리 맥락 반영을 위해 SASRec top50 후보에서 쿼리 임베딩 유사도로 재정렬하는 hybrid 구조 적용.
 
 ## Roadmap
-- [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5 reranking (텍스트 전용)
+- [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5-3B-Instruct (reranking + 한국어 추천 이유)
+- [x] v1: Qwen2.5-3B-Instruct KoAlpaca 기반 한국어 LoRA 파인튜닝
 - [x] v1: 유저 구매 이력 임베딩 평균 기반 개인화 추천
 - [x] v2: 멀티모달 전환 (Qwen3-VL-Embedding-2B + ChromaDB + 이미지)
 - [x] v2: 한국어 추천 이유 생성 (Qwen3-VL-2B-Instruct)
