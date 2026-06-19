@@ -35,6 +35,7 @@
 | **Hybrid (alpha=0.3)** | **0.211** | **0.264** |
 
 > Embedding only 대비 Hybrid: HitRate@5 기준 **+167%** 향상
+> 평가 쿼리 : 정답 아이템의 product_type + graphical_appearance + colour_group
 
 ### Embedding Ablation — CLIP vs Qwen3-VL (Leave-one-out, 1,000 users, 10,000 items)
 | Model | HitRate@5 | HitRate@10 |
