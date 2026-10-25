@@ -145,8 +145,12 @@ with torch.no_grad():
 q_vec = torch.cat(q_vec).to(device)
 
 # ── BM25 (make_bm25_model.py와 같은 코퍼스) ──────────────
-print("BM25 인덱싱...")
-bm25 = BM25Okapi([(str(r.prod_name) + ' ' + str(r.detail_desc)).lower().split()
+# 옵션: BM25_CORPUS=full → 상품명+설명에 종류/패턴/색상 컬럼 추가 (기존 코퍼스엔 쿼리의 색상·종류 단어가 없음)
+BM25_FULL = os.environ.get('BM25_CORPUS') == 'full'
+print(f"BM25 인덱싱... (코퍼스: {'상품명+종류+패턴+색상+설명' if BM25_FULL else '상품명+설명'})")
+bm25 = BM25Okapi([(str(r.prod_name) + ' ' +
+                   (f'{r.product_type_name} {r.graphical_appearance_name} {r.colour_group_name} ' if BM25_FULL else '') +
+                   str(r.detail_desc)).lower().split()
                   for r in articles_df.set_index('article_id').loc[item_ids].itertuples()])
 
 # ── 단계별 latency (app 기준, 유저 1명 요청) ─────────────

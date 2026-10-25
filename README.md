@@ -76,9 +76,11 @@
 
 **요약**
 - 현재 app 파이프라인 대비 **HitRate@10 +36%** (0.130 → 0.177): 가중치 튜닝 +16% → Two-Tower+Qwen 교체 +23% → 후보 확대 +36%
+- BM25 코퍼스에 종류/패턴/색상 추가 시 BM25가 유효해져 **+48%** (0.130 → 0.193, 단 평가 쿼리와 단어가 일치하는 유리한 조건)
 - Two-Tower+Qwen은 단독 개인화 추천에서 cornac BPR 대비 **Recall@12 +38%**, 이력 1~5개 유저 **+80%**, 신상품 추천 가능
 - 성능 향상은 Two-Tower 구조가 아닌 **Qwen 콘텐츠 임베딩**에서 옴 (ID 기반 Two-Tower ≈ BPR)
-- BM25·RRF·epsilon 탐색은 효과 없음, SASRec은 NaN 버그 발견
+- 후보 생성 latency 77ms → 3.8ms (BM25 전체 스코어링 제거), 쿼리 보강 로컬화 시 5~7초 → 0.3초
+- RRF·epsilon 탐색은 효과 없음, SASRec은 NaN 버그 발견
 
 > 기존 평가는 train 구매 중 1개를 정답으로 써서 CF가 정답을 학습 때 이미 본 상태(**leak**).
 > 새 평가(**future**)는 test 기간(시간 기준 뒤 20%)에 **새로 산 아이템**을 정답으로 사용 → CF가 못 본 미래 구매, 정답의 31%가 신상품.
@@ -133,6 +135,24 @@
 
 > 후보를 늘리면 정답 포함률은 크게 오르지만 최종 성능은 200개 이후 정체 → 가중합 재정렬의 한계, 학습 기반 랭커 여지.
 
+#### BM25 코퍼스 보강 (future, test 5,000 users, HitRate@10)
+> 기존 BM25 코퍼스(`prod_name + detail_desc`)에는 쿼리의 색상·종류 단어가 없음 (쿼리 "Vest top Solid Black" ↔ 코퍼스 "strap top jersey top with narrow shoulder straps") → BM25가 색상/종류를 매칭 못 함.
+> 코퍼스에 `product_type_name + graphical_appearance_name + colour_group_name` 추가 (`BM25_CORPUS=full`).
+
+| 설정 | 기존 코퍼스 | 보강 코퍼스 |
+|---|---|---|
+| BM25 only (쿼리 후보 50 재정렬) | 0.0474 | **0.1512** |
+| 현재 app (.5 / .3 / .2), BPR (cornac) | 0.1304 | 0.1544 |
+| tuned, BPR (cornac) | 0.1516 (.4/.6/0) | 0.1868 (.1/.3/.6) |
+| **tuned, Two-Tower+Qwen** | 0.1602 (.3/.7/0) | **0.1930** (.1/.4/.5) |
+
+> 보강 후 BM25 가중치가 0 → 0.5~0.6으로 선택되며 +20%. 단 평가 쿼리가 보강한 컬럼과 같은 단어로 만들어져 BM25에 유리한 조건 → 실제 쿼리에서는 이득이 더 작을 수 있음.
+
+#### 자연어 쿼리 평가 시도 (실패)
+> Qwen3-VL-2B-Instruct로 정답 상품마다 "유저가 했을 법한 요청"을 생성(`gen_nl_queries.py`)해 더 현실적인 평가를 시도.
+> 결과: 2B 모델이 "속성 1개만" 지시를 따르지 않고 색상·종류·상품명까지 넣음 (예: "Black high-waisted tights for a sleek, minimalist look.") → 쿼리 검색 Recall@50이 28.5% → 60.8%로 오히려 쉬워져 현실성 검증 목적 달성 못 함.
+> 참고: 쿼리가 구체적일수록 최적 가중치가 임베딩/BM25 쪽으로 이동 (.3/.7/0 → .5/.3/.2 근처가 최적) → 쿼리 특성에 따라 가중치가 달라져야 함 (학습 기반 랭커 근거).
+
 #### SASRec 재검증 (10,000 users)
 | Model | 기존 방식 (1+99, 학습 target) HitRate@10 | future (전체 아이템) HitRate@10 |
 |---|---|---|
@@ -145,16 +165,19 @@
 > 기존 HitRate 0.094는 NaN이 아닌 소수 유저(이력 50개 이상)가 학습 target을 맞힌 값. 수정: 자기 자신은 항상 attend하도록 mask + `x[:, -1]`.
 > 수정 후에도 미래 구매 예측은 인기순 수준 (15 epoch, 유저당 마지막 아이템 1개만 학습) → 연관 추천에는 Two-Tower+Qwen이 우세.
 
-#### Latency (요청 1건)
-| 단계 | ms |
-|---|---|
-| 쿼리 임베딩 (Qwen, 텍스트) | 59.4 |
-| 임베딩 전수 검색 top50 (GPU) | 2.4 |
-| BM25 `get_scores` 전체 105k (현재 app) | 102.6 |
-| BM25 `get_batch_scores` 후보 50개 | 3.5 |
-| CF 전체 아이템 스코어링 (GPU) | 0.1 |
+#### Latency — `/recommend` 요청 1건 (`measure_latency.py`, 20건 평균, ms)
+| 단계 | 현재 app | 개선안 |
+|---|---|---|
+| 쿼리 보강 (Gemini 대신 로컬 Qwen3-VL-2B-Instruct) | 305 | 305 |
+| 쿼리 임베딩 (Qwen3-VL-Embedding, 텍스트) | 79 | 79 |
+| 검색 (GPU 전수, 105k) | 2.9 (top50) | 2.7 (top1000 ∪ Two-Tower 50) |
+| BM25 `get_scores` 전체 105k | 66.0 | - |
+| CF 스코어링 + 가중합 + 정렬 | 8.2 (cornac BPR) | 0.8 (Two-Tower+Qwen) |
+| **후보 생성 전체 (임베딩 제외)** | **77.3** | **3.8** |
 
-> BM25를 유지한다면 app의 `get_scores`(전체)를 `get_batch_scores`(후보만)로 바꾸면 30배 빠름.
+> 검색은 로컬 ChromaDB(1,000개)가 아닌 GPU 전수 검색으로 측정. Reranker(3.2초)는 모델 부재로 미측정, 후보 수와 무관하게 상위 5개에만 적용.
+> 쿼리 보강을 로컬 Instruct로 바꾸면 Gemini 5~7초 → **0.3초** (예: "출근할 때 입을 깔끔한 셔츠" → "business casual shirt").
+> BM25를 유지한다면 `get_scores`(전체) 대신 `get_batch_scores`(후보만): 후보 50개 3.5ms.
 
 #### 실험 재현
 | 순서 | 스크립트 | 내용 | 시간 (RTX 8GB 기준) |
@@ -166,7 +189,9 @@
 | 5 | `compare_twotower_bpr.py` | CF 단독 비교 (+PyTorch BPR, 인기순, 재구매) | 6분 |
 | 6 | `N_USERS=10000 python evaluate_hybrid_twotower.py` | Hybrid 평가 (leak/future, 가중치 tune, 구간 분석, 후보 수, latency) | 15분 |
 | 7 | `evaluate_sasrec.py` | SASRec 원본 vs 수정판 | 25분 |
-| (옵션) | `gen_nl_queries.py` → `QUERY_FILE=nl_queries.json` | Qwen3-VL-2B-Instruct로 자연어 요청 생성 후 평가 | |
+| (옵션) | `BM25_CORPUS=full` | 6번에서 BM25 코퍼스에 종류/패턴/색상 추가 | 10분 |
+| (옵션) | `gen_nl_queries.py` → `QUERY_FILE=nl_queries.json` | Qwen3-VL-2B-Instruct로 자연어 요청 생성 후 평가 | 5분 |
+| (옵션) | `measure_latency.py` | `/recommend` 단계별 latency (현재 app vs 개선안) | 5분 |
 
 ## Roadmap
 - [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5-3B-Instruct (reranking + 한국어 추천 이유)
@@ -190,7 +215,9 @@
 - [x] v6: 미래 구매 기준 평가(future) 추가, hybrid 가중치 grid search (tune/test 분리)
 - [x] v6: SASRec eval NaN 버그 발견 및 수정
 - [x] v6: 후보 수 / 리트리벌(쿼리 ∪ Two-Tower) 실험, 신상품·이력 길이 구간 분석
-- [ ] v6: app에 Two-Tower+Qwen 적용, 후보 200+ / 가중치 .4/.6/0, BM25 제거, SASRec 수정판 재학습
+- [x] v6: BM25 코퍼스 보강 실험 (종류/패턴/색상 추가 → BM25 유효화), 단계별 latency 측정
+- [ ] v6: app에 Two-Tower+Qwen 적용, 후보 200+, BM25 코퍼스 보강 + `get_batch_scores`, 쿼리 보강 로컬화, SASRec 수정판 재학습
+- [ ] v6: 자연어 쿼리 평가 재시도 (few-shot 프롬프트 + 속성 단어 후처리 제거)
 - [ ] v7: 가중합 → 학습 기반 랭커 (LightGBM), 신상품/기존상품 CF 앙상블
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집, Hard negative mining 적용
 
