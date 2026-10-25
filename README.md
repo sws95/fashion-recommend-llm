@@ -35,6 +35,7 @@
 | **Hybrid (alpha=0.3)** | **0.211** | **0.264** |
 
 > Embedding only 대비 Hybrid: HitRate@5 기준 **+167%** 향상
+> 평가 쿼리 : 정답 아이템의 product_type + graphical_appearance + colour_group
 > ⚠️ 이 평가는 train 구매를 정답으로 써서 BPR이 정답을 학습 때 본 상태(leak). 미래 구매 기준 재평가는 [아래](#two-tower--재평가-미래-구매-기준) 참고.
 
 ### Embedding Ablation — CLIP vs Qwen3-VL (Leave-one-out, 1,000 users, 10,000 items)
