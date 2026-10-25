@@ -1,0 +1,105 @@
+protocol,CF,mode,coverage@10,avg_log_pop@10,cold_share@10
+leak,BPR,Embedding only,0.20978,3.9966243855766264,0.0731
+leak,BPR,BM25 only,0.16948,3.8190627701845274,0.07712
+leak,BPR,기존 hybrid (.3/.7/0),0.21302,6.038983046710425,0.0506
+leak,BPR,기존 app (.5/.3/.2),0.21332,4.813565678964955,0.07864
+leak,BPR,tuned emb+cf [minmax],0.20628,6.377285376185739,0.02732
+leak,BPR,tuned emb+cf+bm25 [minmax],0.20628,6.377285376185739,0.02732
+leak,BPR,tuned emb+cf [rrf],0.20762,6.401782889383255,0.0248
+leak,BPR,tuned emb+cf+bm25 [rrf],0.20762,6.401782889383255,0.0248
+leak,BPR,retrieval 쿼리50∪CF50 + tuned emb+cf,0.19816,6.774895709758156,0.02492
+leak,BPR,기존 app + explore eps=0.1,0.21418,4.796232652968619,0.07802
+leak,BPR,기존 app + explore eps=1.0,0.2142,4.625958028189063,0.0735
+leak,BPR,best + explore eps=0.1,0.2097,6.333425615780011,0.02718
+leak,BPR,best + explore eps=1.0,0.21826,5.925470209060104,0.02596
+leak,TwoTower,Embedding only,0.20978,3.9966243855766264,0.0731
+leak,TwoTower,BM25 only,0.16948,3.8190627701845274,0.07712
+leak,TwoTower,기존 hybrid (.3/.7/0),0.22546,6.203571087283453,0.00076
+leak,TwoTower,기존 app (.5/.3/.2),0.21898,4.959435945832968,0.02814
+leak,TwoTower,tuned emb+cf [minmax],0.22356,6.343093588239865,0.0004
+leak,TwoTower,tuned emb+cf+bm25 [minmax],0.22356,6.343093588239865,0.0004
+leak,TwoTower,tuned emb+cf [rrf],0.22482,6.386802723145234,0.00012
+leak,TwoTower,tuned emb+cf+bm25 [rrf],0.22482,6.386802723145234,0.00012
+leak,TwoTower,retrieval 쿼리50∪CF50 + tuned emb+cf,0.21328,6.915301212754258,6e-05
+leak,TwoTower,기존 app + explore eps=0.1,0.21928,4.941403892732883,0.02934
+leak,TwoTower,기존 app + explore eps=1.0,0.22118,4.773935006978604,0.0404
+leak,TwoTower,best + explore eps=0.1,0.22738,6.299603616706004,0.00222
+leak,TwoTower,best + explore eps=1.0,0.23948,5.900836031617537,0.01846
+leak,TwoTower+Qwen,Embedding only,0.20978,3.9966243855766264,0.0731
+leak,TwoTower+Qwen,BM25 only,0.16948,3.8190627701845274,0.07712
+leak,TwoTower+Qwen,기존 hybrid (.3/.7/0),0.24776,5.684941632189952,0.09372
+leak,TwoTower+Qwen,기존 app (.5/.3/.2),0.22618,4.694478417100007,0.08436
+leak,TwoTower+Qwen,tuned emb+cf [minmax],0.24978,5.844229951259808,0.0967
+leak,TwoTower+Qwen,tuned emb+cf+bm25 [minmax],0.24978,5.844229951259808,0.0967
+leak,TwoTower+Qwen,tuned emb+cf [rrf],0.25184,5.851680178314163,0.09684
+leak,TwoTower+Qwen,tuned emb+cf+bm25 [rrf],0.25184,5.851680178314163,0.09684
+leak,TwoTower+Qwen,retrieval 쿼리50∪CF50 + tuned emb+cf,0.24542,6.832075196664361,0.08908
+leak,TwoTower+Qwen,기존 app + explore eps=0.1,0.22646,4.683163550180089,0.0841
+leak,TwoTower+Qwen,기존 app + explore eps=1.0,0.22782,4.5742880223570666,0.08192
+leak,TwoTower+Qwen,best + explore eps=0.1,0.25328,5.810702410930475,0.09598
+leak,TwoTower+Qwen,best + explore eps=1.0,0.26286,5.495969030396809,0.09034
+leak,"BPR (cornac, 앱)",Embedding only,0.20978,3.9966243855766264,0.0731
+leak,"BPR (cornac, 앱)",BM25 only,0.16948,3.8190627701845274,0.07712
+leak,"BPR (cornac, 앱)",기존 hybrid (.3/.7/0),0.20398,6.087769812482247,0.08876
+leak,"BPR (cornac, 앱)",기존 app (.5/.3/.2),0.21404,4.937867842621394,0.09166
+leak,"BPR (cornac, 앱)",tuned emb+cf [minmax],0.20184,6.191212832280241,0.08288
+leak,"BPR (cornac, 앱)",tuned emb+cf+bm25 [minmax],0.20184,6.191212832280241,0.08288
+leak,"BPR (cornac, 앱)",tuned emb+cf [rrf],0.20364,6.262342839500955,0.07468
+leak,"BPR (cornac, 앱)",tuned emb+cf+bm25 [rrf],0.20364,6.262342839500955,0.07468
+leak,"BPR (cornac, 앱)",retrieval 쿼리50∪CF50 + tuned emb+cf,0.1965,6.655328190196317,0.06346
+leak,"BPR (cornac, 앱)",기존 app + explore eps=0.1,0.21454,4.927812610789812,0.09106
+leak,"BPR (cornac, 앱)",기존 app + explore eps=1.0,0.21478,4.825983708883095,0.08588
+leak,"BPR (cornac, 앱)",best + explore eps=0.1,0.20626,6.152950805748323,0.08222
+leak,"BPR (cornac, 앱)",best + explore eps=1.0,0.2179,5.801896051891106,0.077
+future,BPR,Embedding only,0.18294,3.963279727020615,0.08924
+future,BPR,BM25 only,0.14652,3.7426480003490625,0.08442
+future,BPR,기존 hybrid (.3/.7/0),0.18228,6.028415690314847,0.06662
+future,BPR,기존 app (.5/.3/.2),0.18508,4.760312374469442,0.09726
+future,BPR,tuned emb+cf [minmax],0.18604,5.7057408233979485,0.08112
+future,BPR,tuned emb+cf+bm25 [minmax],0.18604,5.7057408233979485,0.08112
+future,BPR,tuned emb+cf [rrf],0.18924,5.62871659256365,0.07872
+future,BPR,tuned emb+cf+bm25 [rrf],0.18924,5.62871659256365,0.07872
+future,BPR,retrieval 쿼리50∪CF50 + tuned emb+cf,0.18734,6.008414102073896,0.07008
+future,BPR,기존 app + explore eps=0.1,0.18588,4.742006165131066,0.09658
+future,BPR,기존 app + explore eps=1.0,0.18612,4.572777386914146,0.09122
+future,BPR,best + explore eps=0.1,0.18908,5.670934649814979,0.08018
+future,BPR,best + explore eps=1.0,0.19388,5.335498833348171,0.07396
+future,TwoTower,Embedding only,0.18294,3.963279727020615,0.08924
+future,TwoTower,BM25 only,0.14652,3.7426480003490625,0.08442
+future,TwoTower,기존 hybrid (.3/.7/0),0.19826,6.2402078225929385,0.00118
+future,TwoTower,기존 app (.5/.3/.2),0.19296,4.94999003550164,0.03928
+future,TwoTower,tuned emb+cf [minmax],0.19826,6.2402078225929385,0.00118
+future,TwoTower,tuned emb+cf+bm25 [minmax],0.19826,6.2402078225929385,0.00118
+future,TwoTower,tuned emb+cf [rrf],0.2009,6.12544536562448,0.00146
+future,TwoTower,tuned emb+cf+bm25 [rrf],0.2009,6.12544536562448,0.00146
+future,TwoTower,retrieval 쿼리50∪CF50 + tuned emb+cf,0.20012,6.500553157290181,0.0008
+future,TwoTower,기존 app + explore eps=0.1,0.1935,4.931692837157834,0.04054
+future,TwoTower,기존 app + explore eps=1.0,0.19438,4.769993936131716,0.05226
+future,TwoTower,best + explore eps=0.1,0.20154,6.197237880030845,0.00346
+future,TwoTower,best + explore eps=1.0,0.21108,5.806682758604824,0.02248
+future,TwoTower+Qwen,Embedding only,0.18294,3.963279727020615,0.08924
+future,TwoTower+Qwen,BM25 only,0.14652,3.7426480003490625,0.08442
+future,TwoTower+Qwen,기존 hybrid (.3/.7/0),0.21454,5.675177158196646,0.11244
+future,TwoTower+Qwen,기존 app (.5/.3/.2),0.19858,4.663989301068827,0.1018
+future,TwoTower+Qwen,tuned emb+cf [minmax],0.21454,5.675177158196646,0.11244
+future,TwoTower+Qwen,tuned emb+cf+bm25 [minmax],0.21454,5.675177158196646,0.11244
+future,TwoTower+Qwen,tuned emb+cf [rrf],0.21646,5.60047174472376,0.11148
+future,TwoTower+Qwen,tuned emb+cf+bm25 [rrf],0.21646,5.60047174472376,0.11148
+future,TwoTower+Qwen,retrieval 쿼리50∪CF50 + tuned emb+cf,0.2253,5.8988246609529424,0.11138
+future,TwoTower+Qwen,기존 app + explore eps=0.1,0.19898,4.651085929915746,0.1015
+future,TwoTower+Qwen,기존 app + explore eps=1.0,0.20032,4.543749445989195,0.09828
+future,TwoTower+Qwen,best + explore eps=0.1,0.21694,5.644732078721549,0.11152
+future,TwoTower+Qwen,best + explore eps=1.0,0.2239,5.355375827848054,0.10414
+future,"BPR (cornac, 앱)",Embedding only,0.18294,3.963279727020615,0.08924
+future,"BPR (cornac, 앱)",BM25 only,0.14652,3.7426480003490625,0.08442
+future,"BPR (cornac, 앱)",기존 hybrid (.3/.7/0),0.189,5.985122528488714,0.10842
+future,"BPR (cornac, 앱)",기존 app (.5/.3/.2),0.19048,4.851802208164736,0.11128
+future,"BPR (cornac, 앱)",tuned emb+cf [minmax],0.19168,5.792222351753392,0.11254
+future,"BPR (cornac, 앱)",tuned emb+cf+bm25 [minmax],0.19168,5.792222351753392,0.11254
+future,"BPR (cornac, 앱)",tuned emb+cf [rrf],0.19706,5.415346967660846,0.12496
+future,"BPR (cornac, 앱)",tuned emb+cf+bm25 [rrf],0.19706,5.415346967660846,0.12496
+future,"BPR (cornac, 앱)",retrieval 쿼리50∪CF50 + tuned emb+cf,0.19244,6.074559758897177,0.10322
+future,"BPR (cornac, 앱)",기존 app + explore eps=0.1,0.19076,4.843212232298338,0.11046
+future,"BPR (cornac, 앱)",기존 app + explore eps=1.0,0.19124,4.754063384093838,0.1048
+future,"BPR (cornac, 앱)",best + explore eps=0.1,0.19404,5.762124286150062,0.1113
+future,"BPR (cornac, 앱)",best + explore eps=1.0,0.19934,5.467424507673432,0.1025
