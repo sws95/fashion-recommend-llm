@@ -20,11 +20,32 @@ processor.tokenizer.padding_side = 'left'
 model = Qwen3VLForConditionalGeneration.from_pretrained(MODEL, torch_dtype=torch.bfloat16, device_map="cuda").eval()
 
 PROMPT = """You are a shopper looking for clothes. Below is a product you would end up buying.
-Write ONE short request (max 15 words) you would type into a fashion shopping assistant to find something like it.
-Rules: describe the occasion, season, vibe or how you'd wear it. Mention at most ONE concrete attribute (color OR item type). Do not copy the product name. Output only the request.
+Write ONE short, vague request (max 12 words) you would type into a fashion shopping assistant.
+Rules: talk about the occasion, season, vibe or how you'd wear it. You may name the general item type. NEVER mention colors, patterns, materials or the product name.
+
+Examples:
+Product: Strap top | type: Vest top | color: Black | pattern: Solid → something cool and simple to wear on hot summer days
+Product: Tilda tank | type: Bra | color: White | pattern: Solid → comfy everyday bra I can wear under anything
+Product: Skinny HW | type: Trousers | color: Light Blue | pattern: Denim → jeans that look good for a casual weekend
+Product: Mona dress | type: Dress | color: Red | pattern: All over pattern → a cute dress for a summer party
 
 Product: {name} | type: {ptype} | color: {colour} | pattern: {pattern} | section: {section}
-Description: {desc}"""
+Description: {desc}
+→"""
+
+# 후처리: 2B 모델이 규칙을 잘 안 지킴 → 색상/패턴 단어, 상품명 단어(종류명 제외)를 코드로 제거
+import re
+COLOR_WORDS   = {w for c in articles['colour_group_name'].dropna().unique() for w in c.lower().split()}
+COLOR_WORDS  |= {w for c in articles['perceived_colour_master_name'].dropna().unique() for w in c.lower().split()}
+PATTERN_WORDS = {w for c in articles['graphical_appearance_name'].dropna().unique() for w in c.lower().split()} - {'all', 'other', 'front', 'print'}
+
+def scrub(text, aid):
+    r = articles.loc[aid]
+    type_words = set(str(r['product_type_name']).lower().split())
+    name_words = set(re.findall(r'[a-z0-9]+', str(r['prod_name']).lower())) - type_words
+    banned = (COLOR_WORDS | PATTERN_WORDS | name_words) - type_words
+    words = [w for w in text.split() if re.sub(r'[^a-z0-9]', '', w.lower()) not in banned]
+    return re.sub(r'\s+', ' ', ' '.join(words)).strip(' ,.')
 
 def build(aid):
     r = articles.loc[aid]
@@ -43,7 +64,8 @@ with torch.no_grad():
         gen = model.generate(**inputs, max_new_tokens=32, do_sample=False)
         texts = processor.tokenizer.batch_decode(gen[:, inputs['input_ids'].shape[1]:], skip_special_tokens=True)
         for a, t in zip(batch, texts):
-            out[a] = t.strip().strip('"').split('\n')[0]
+            raw = t.strip().strip('"').split('\n')[0]
+            out[a] = scrub(raw, a) or raw
 
 json.dump(out, open(out_path, 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
 print(f"저장: {out_path} ({len(out)}개)")

@@ -79,7 +79,8 @@
 - BM25 코퍼스에 종류/패턴/색상 추가 시 BM25가 유효해져 **+48%** (0.130 → 0.193, 단 평가 쿼리와 단어가 일치하는 유리한 조건)
 - Two-Tower+Qwen은 단독 개인화 추천에서 cornac BPR 대비 **Recall@12 +38%**, 이력 1~5개 유저 **+80%**, 신상품 추천 가능
 - 성능 향상은 Two-Tower 구조가 아닌 **Qwen 콘텐츠 임베딩**에서 옴 (ID 기반 Two-Tower ≈ BPR)
-- 후보 생성 latency 77ms → 3.8ms (BM25 전체 스코어링 제거), 쿼리 보강 로컬화 시 5~7초 → 0.3초
+- 애매한 자연어 쿼리에서는 전체 성능이 ~0.05로 떨어지고 모델 간 차이는 오차 범위 (아래 자연어 쿼리 평가)
+- 후보 생성 latency 77ms → 3.8ms (BM25 전체 스코어링 제거), 쿼리 보강을 1회 호출(로컬 2B 또는 Gemini flash-lite) + 날씨 API로 바꾸면 rerank 제외 전체 **~1.5~1.6초** (현재 ~8초)
 - RRF·epsilon 탐색은 효과 없음, SASRec은 NaN 버그 발견
 
 > 기존 평가는 train 구매 중 1개를 정답으로 써서 CF가 정답을 학습 때 이미 본 상태(**leak**).
@@ -115,10 +116,11 @@
 | **현재 app (emb .5 / CF .3 / BM25 .2)** | BPR (cornac) | 쿼리 50 | 0.1304 | 0.0678 | 기준 |
 | tuned (.4 / .6 / 0) | BPR (cornac) | 쿼리 50 | 0.1516 | 0.0803 | +16% |
 | tuned (.3 / .7 / 0) | Two-Tower+Qwen | 쿼리 50 | 0.1598 | 0.0891 | +23% |
-| tuned (.3 / .7 / 0) | Two-Tower+Qwen | 쿼리 50 ∪ Two-Tower 50 | 0.1692 | 0.0950 | +30% |
+| tuned (.6 / .4 / 0) | Two-Tower+Qwen | 쿼리 50 ∪ Two-Tower 50 | 0.1692 | 0.0950 | +30% |
 | **tuned (.4 / .6 / 0)** | **Two-Tower+Qwen** | **쿼리 1,000** | **0.1770** | **0.0977** | **+36%** |
 
-> BM25는 grid search에서 모든 경우 가중치 0으로 선택 (향상 없음). RRF는 모든 경우 min-max보다 낮음. epsilon 탐색(0.1)은 정확도·다양성 모두 변화 미미.
+> 기존 BM25 코퍼스에서는 grid search가 모든 경우 BM25 가중치 0을 선택 (향상 없음, 코퍼스 보강 시 달라짐 → [아래](#bm25-코퍼스-보강-future-test-5000-users-hitrate10)). RRF는 모든 경우 min-max보다 낮음. epsilon 탐색(0.1)은 정확도·다양성 모두 변화 미미.
+> 쿼리 ∪ Two-Tower 후보에서는 쿼리 가중치가 .3 → .6으로 올라감 (쿼리와 무관한 개인화 후보를 쿼리 점수로 걸러냄).
 > leak 프로토콜에서는 튜닝 가중치가 CF 0.8~0.9로 쏠림 → 정답 누수로 CF가 과대평가됨.
 
 | 정답 종류 (HitRate@10, .3/.7/0) | BPR (cornac) | Two-Tower (ID) | Two-Tower+Qwen |
@@ -126,7 +128,7 @@
 | 신상품 (1,510명) | 0.1040 | 0.0007 | **0.1702** |
 | 기존 상품 (3,490명) | 0.1665 | **0.1799** | 0.1553 |
 
-> Hybrid에서 Two-Tower+Qwen의 이득은 **신상품**에서 나옴. 기존 상품은 쿼리 임베딩과 정보가 겹쳐 ID 기반 CF가 더 보완적 → 상품 종류별 CF 앙상블 여지.
+> Hybrid에서 Two-Tower+Qwen의 이득은 **신상품**에서 나옴. 기존 상품에서는 ID 기반 CF가 더 높음 — 쿼리 임베딩과 콘텐츠 정보가 겹치기 때문으로 추정 → 상품 종류별 CF 앙상블 여지.
 
 | 쿼리 후보 수 (Two-Tower+Qwen) | 50 | 100 | 200 | 500 | 1,000 |
 |---|---|---|---|---|---|
@@ -144,25 +146,37 @@
 | BM25 only (쿼리 후보 50 재정렬) | 0.0474 | **0.1512** |
 | 현재 app (.5 / .3 / .2), BPR (cornac) | 0.1304 | 0.1544 |
 | tuned, BPR (cornac) | 0.1516 (.4/.6/0) | 0.1868 (.1/.3/.6) |
-| **tuned, Two-Tower+Qwen** | 0.1602 (.3/.7/0) | **0.1930** (.1/.4/.5) |
+| **tuned, Two-Tower+Qwen** | 0.1598 (.3/.7/0) | **0.1930** (.1/.4/.5) |
 
 > 보강 후 BM25 가중치가 0 → 0.5~0.6으로 선택되며 +20%. 단 평가 쿼리가 보강한 컬럼과 같은 단어로 만들어져 BM25에 유리한 조건 → 실제 쿼리에서는 이득이 더 작을 수 있음.
 
-#### 자연어 쿼리 평가 시도 (실패)
-> Qwen3-VL-2B-Instruct로 정답 상품마다 "유저가 했을 법한 요청"을 생성(`gen_nl_queries.py`)해 더 현실적인 평가를 시도.
-> 결과: 2B 모델이 "속성 1개만" 지시를 따르지 않고 색상·종류·상품명까지 넣음 (예: "Black high-waisted tights for a sleek, minimalist look.") → 쿼리 검색 Recall@50이 28.5% → 60.8%로 오히려 쉬워져 현실성 검증 목적 달성 못 함.
-> 참고: 쿼리가 구체적일수록 최적 가중치가 임베딩/BM25 쪽으로 이동 (.3/.7/0 → .5/.3/.2 근처가 최적) → 쿼리 특성에 따라 가중치가 달라져야 함 (학습 기반 랭커 근거).
+#### 자연어 쿼리 평가 (future, test 1,000 users)
+> 속성 쿼리("Vest top Solid Black")는 정답을 그대로 알려줘 실제 요청보다 쉬움 → Qwen3-VL-2B-Instruct로 정답 상품마다 "유저가 했을 법한 요청"을 생성(`gen_nl_queries.py`).
+> - **v1 (실패)**: 2B 모델이 "속성 1개만" 지시를 무시하고 색상·종류·상품명까지 넣음 (예: "Black high-waisted tights for a sleek, minimalist look.") → 오히려 더 쉬워짐.
+> - **v2**: few-shot 예시 + 색상/패턴/상품명 단어를 코드로 제거 (예: "Comfortable socks for a casual day out", "belt for a casual day out").
+
+| | 속성 쿼리 | 자연어 v1 | **자연어 v2** |
+|---|---|---|---|
+| 쿼리 후보 50 안에 정답 비율 | 28.5% | 60.8% | **10.3%** |
+| Embedding only (HitRate@10) | 0.104 | 0.363 | 0.040 |
+| 현재 app (.5/.3/.2), BPR (cornac) | 0.130 | 0.409 | 0.054 |
+| tuned (emb + CF), Two-Tower+Qwen | 0.160 | 0.422 | 0.053 |
+| 쿼리 50 ∪ Two-Tower 50, Two-Tower+Qwen | 0.169 | 0.431 | 0.058 |
+| 쿼리 50 ∪ CF 50, BPR (cornac) | 0.159 | 0.417 | 0.061 |
+
+> 애매한 쿼리(v2)에서는 정답이 쿼리 후보에 거의 안 들어와 전체 성능이 ~0.05로 떨어짐. test 1,000명이라 오차 ±0.007 → 설정·모델 간 차이는 유의하지 않음.
+> 쿼리가 구체적일수록(v1) 최적 가중치가 임베딩/BM25 쪽으로 이동 → 쿼리 특성에 따라 가중치가 달라져야 함 (학습 기반 랭커 근거). 애매한 쿼리일수록 개인화 후보(∪ CF 50)가 정답 포함률을 보완.
 
 #### SASRec 재검증 (10,000 users)
-| Model | 기존 방식 (1+99, 학습 target) HitRate@10 | future (전체 아이템) HitRate@10 |
+| Model | 기존 방식 재현 (1+99, 학습 target) HitRate@10 | future (전체 아이템) HitRate@10 |
 |---|---|---|
-| SASRec (기존) | 0.092 | 0.0015 |
+| SASRec (기존 코드, 15 epoch) | 0.092 | 0.0015 |
 | SASRec (버그 수정) | 0.775 | 0.0082 |
 | Popularity (최근 1주) | - | 0.0083 |
 | Two-Tower+Qwen | - | **0.0124** |
 
 > **버그**: 왼쪽 패딩 시퀀스에서 패딩 위치가 attend할 key가 없어 `eval()` 추론 시 NaN → 이력 50개 미만 유저(77~89%)의 출력이 전부 NaN.
-> 기존 HitRate 0.094는 NaN이 아닌 소수 유저(이력 50개 이상)가 학습 target을 맞힌 값. 수정: 자기 자신은 항상 attend하도록 mask + `x[:, -1]`.
+> 기존 HitRate@5 0.094는 NaN이 아닌 소수 유저(이력 50개 이상)가 학습 target을 맞힌 값 (NaN 유저는 `argsort` 결과 정답이 항상 100등). 수정: 자기 자신은 항상 attend하도록 mask + `x[:, -1]`.
 > 수정 후에도 미래 구매 예측은 인기순 수준 (15 epoch, 유저당 마지막 아이템 1개만 학습) → 연관 추천에는 Two-Tower+Qwen이 우세.
 
 #### Latency — `/recommend` 요청 1건 (`measure_latency.py`, 20건 평균, ms)
@@ -176,11 +190,38 @@
 | **후보 생성 전체 (임베딩 제외)** | **77.3** | **3.8** |
 
 > 검색은 로컬 ChromaDB(1,000개)가 아닌 GPU 전수 검색으로 측정. Reranker(3.2초)는 모델 부재로 미측정, 후보 수와 무관하게 상위 5개에만 적용.
-> 쿼리 보강을 로컬 Instruct로 바꾸면 Gemini 5~7초 → **0.3초** (예: "출근할 때 입을 깔끔한 셔츠" → "business casual shirt").
+> 쿼리 보강 305ms는 단순 번역만 한 값 (예: "출근할 때 입을 깔끔한 셔츠" → "business casual shirt"). 도시 추출·날씨 포함 전체는 아래.
 > BM25를 유지한다면 `get_scores`(전체) 대신 `get_batch_scores`(후보만): 후보 50개 3.5ms.
 
+#### Latency — 전체 요청 (`measure_e2e_latency.py`, 날씨 API 온라인, 20건 평균, ms)
+> 흐름: 한국어 요청 → 로컬 Qwen3-VL-2B-Instruct 1회(영어 쿼리 + 도시 추출, JSON) → 도시가 있으면 날씨 API → 계절 키워드 추가 → 임베딩 → 검색 + Two-Tower → 상위 5. Tavily 제외.
+> 날씨는 OpenWeatherMap 키가 없어 Open-Meteo(지오코딩 + 기온 2회 호출)로 대체. 8GB GPU라 LLM/임베딩을 따로 측정해 합산 (16GB면 동시 적재).
+
+| 단계 | 평균 | p95 |
+|---|---|---|
+| 로컬 LLM (번역 + 도시 추출) | 1,096 | 1,492 |
+| 날씨 API (도시 언급 14건) | 638 | 729 |
+| 쿼리 임베딩 | 63 | 74 |
+| 검색 + Two-Tower + 정렬 | 2.2 | 2.9 |
+| **합계 (rerank 제외)** | **1,608** (도시 O 1,865 / 도시 X 1,009) | 2,230 |
+| + Reranker (README 3.2초) | ~4,800 | |
+
+> 현재 app(Gemini 에이전트 5~7초 + 임베딩·검색 ~1.2초, rerank 제외 ~8초) 대비 약 **5배** 빠름.
+> 품질 이슈: 2B 모델이 일부 요청을 부정확하게 보강 (예: "서울 날씨에 맞는 출근룩" → "city spring", "광주 날씨 보고 니트" → 번역 실패) → 프롬프트 개선 또는 더 큰 모델 필요.
+
+#### Latency — Gemini 쿼리 보강 (`measure_gemini_latency.py`, 요청 5건, ms)
+| 모델 / 방식 | LLM 호출 | LLM | 날씨 API | 합계 |
+|---|---|---|---|---|
+| gemini-flash-lite, 단순 호출 (번역 + 도시 추출 1회) | 1 | **772** | 681 | **1,453** |
+| gemini-flash-lite, 에이전트 (도구 선택 → 날씨 → 최종 쿼리, app 방식) | 2 | 1,611 | 642 | 2,253 |
+| (참고) 로컬 Qwen3-VL-2B-Instruct, 단순 호출 | 1 | 1,096 | 638 | 1,734 |
+
+> app의 `gemini-2.5-flash`는 신규 사용자 미제공 → flash-lite로 측정. `gemini-flash-latest`는 임시 키에서 120초 타임아웃으로 측정 불가.
+> flash-lite가 로컬 2B보다 빠르고 품질도 우수 (예: "서울 날씨에 맞는 출근룩" → "office look business casual workwear spring").
+> 에이전트 방식은 LLM 2회 호출로 단순 호출 대비 ~2배 → 도시 추출과 번역을 1회 호출로 합치는 것이 유리. app의 5~7초는 이전 모델 + Tavily 등 도구 호출 포함으로 추정.
+
 #### 실험 재현
-| 순서 | 스크립트 | 내용 | 시간 (RTX 8GB 기준) |
+| 순서 | 스크립트 | 내용 | 시간 (8GB GPU 기준) |
 |---|---|---|---|
 | 1 | `make_qwen_text_emb.py` | 전체 상품 Qwen 텍스트 임베딩 → `qwen_text_emb.npy` | 30분~ |
 | 2 | `make_twotower_model.py` | Two-Tower (ID + 카테고리) | 8분 |
@@ -192,6 +233,8 @@
 | (옵션) | `BM25_CORPUS=full` | 6번에서 BM25 코퍼스에 종류/패턴/색상 추가 | 10분 |
 | (옵션) | `gen_nl_queries.py` → `QUERY_FILE=nl_queries.json` | Qwen3-VL-2B-Instruct로 자연어 요청 생성 후 평가 | 5분 |
 | (옵션) | `measure_latency.py` | `/recommend` 단계별 latency (현재 app vs 개선안) | 5분 |
+| (옵션) | `measure_e2e_latency.py` | 로컬 쿼리 보강 + 날씨 API 포함 전체 latency | 5분 |
+| (옵션) | `GEMINI_API_KEY=... python measure_gemini_latency.py` | Gemini 쿼리 보강 latency (단순 호출 vs 에이전트) | 5분 |
 
 ## Roadmap
 - [x] v1: 자연어 입력 → FAISS retrieval → Qwen2.5-3B-Instruct (reranking + 한국어 추천 이유)
@@ -211,13 +254,14 @@
 - [x] v5: MLflow 실험 추적 (alpha/k 조합별 HitRate, NDCG, MRR 기록)
 - [x] v5: Docker 컨테이너화 (CUDA 12.6 기반 GPU 서빙 환경 구축)
 - [x] v5: Airflow DAG 기반 재학습 파이프라인 자동화 (신규 데이터 → BPR 재학습 → 평가 → 모델 교체)
-- [x] v6: Two-Tower(+Qwen 콘텐츠 임베딩) 도입, BPR 대비 Recall@12 +20%
+- [x] v6: Two-Tower(+Qwen 콘텐츠 임베딩) 도입, cornac BPR 대비 Recall@12 +38%
 - [x] v6: 미래 구매 기준 평가(future) 추가, hybrid 가중치 grid search (tune/test 분리)
 - [x] v6: SASRec eval NaN 버그 발견 및 수정
 - [x] v6: 후보 수 / 리트리벌(쿼리 ∪ Two-Tower) 실험, 신상품·이력 길이 구간 분석
 - [x] v6: BM25 코퍼스 보강 실험 (종류/패턴/색상 추가 → BM25 유효화), 단계별 latency 측정
 - [ ] v6: app에 Two-Tower+Qwen 적용, 후보 200+, BM25 코퍼스 보강 + `get_batch_scores`, 쿼리 보강 로컬화, SASRec 수정판 재학습
-- [ ] v6: 자연어 쿼리 평가 재시도 (few-shot 프롬프트 + 속성 단어 후처리 제거)
+- [x] v6: 자연어 쿼리 평가 (LLM 생성 + 속성 단어 후처리), 날씨 API 포함 전체 latency 측정
+- [ ] v6: 자연어 쿼리 평가 유저 확대 (1,000 → 5,000+, 오차 축소)
 - [ ] v7: 가중합 → 학습 기반 랭커 (LightGBM), 신상품/기존상품 CF 앙상블
 - [ ] v?: 실제 유저 로그인 + 히스토리 수집, Hard negative mining 적용
 
