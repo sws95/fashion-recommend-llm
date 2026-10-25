@@ -34,7 +34,7 @@ for code, g in art.groupby('product_code'):
         sib = [b for b in g_ids if b != a and art.loc[b, 'colour_group_name'] != art.loc[a, 'colour_group_name']]
         if sib:
             targets.append(a); siblings.append(sib[0])
-N_EVAL = int(os.environ.get('N_EVAL', 400))       # 이미지 쿼리 임베딩이 느려 평가 대상 샘플링 (검색 대상은 1,000개 그대로)
+N_EVAL = int(os.environ.get('N_EVAL', 150))       # 이미지 쿼리 임베딩이 느려 평가 대상 샘플링 (검색 대상은 1,000개 그대로)
 if len(targets) > N_EVAL:
     keep = np.random.RandomState(42).choice(len(targets), N_EVAL, replace=False)
     targets, siblings = [targets[i] for i in keep], [siblings[i] for i in keep]
@@ -46,10 +46,8 @@ queries = {
     '텍스트만 (속성)':     [{"text": attr[a]} for a in targets],
     '이미지만 (다른 색상)': [{"image": img_path(s)} for s in siblings],
     '속성 텍스트 + 이미지': [{"text": attr[a], "image": img_path(s)} for a, s in zip(targets, siblings)],
-    '자연어 + 이미지':     [{"text": nl[a], "image": img_path(s)} for a, s in zip(targets, siblings)],
     # 상한선: 정답 상품 자기 사진 (정답을 그대로 보여주는 셈)
-    '[상한] 정답 사진만':         [{"image": img_path(a)} if has_img[a] else {"text": attr[a]} for a in targets],
-    '[상한] 속성 텍스트 + 정답 사진': [{"text": attr[a], "image": img_path(a)} if has_img[a] else {"text": attr[a]} for a in targets],
+    '[상한] 정답 사진만':   [{"image": img_path(a)} if has_img[a] else {"text": attr[a]} for a in targets],
 }
 
 model = Qwen3VLEmbedder(model_name_or_path="./Qwen3-VL-Embedding-2B", torch_dtype=torch.bfloat16, max_pixels=256 * 256)
@@ -61,8 +59,9 @@ rows = []
 for qname, qs in queries.items():
     Q = []
     with torch.no_grad():
-        for s in range(0, len(qs), 8):
-            Q.append(model.process([{**q, "instruction": INSTRUCTION} for q in qs[s:s + 8]]).float())
+        for s in range(0, len(qs), 32):
+            Q.append(model.process([{**q, "instruction": INSTRUCTION} for q in qs[s:s + 32]]).float())
+        print(f"  {qname} 완료", flush=True)
     Q = torch.cat(Q).cuda()
     for ename, E in (('텍스트 전용', E_txt), ('이미지+텍스트(VL)', E_img)):
         top = (Q @ E.T).topk(10, dim=1).indices.cpu().numpy()
