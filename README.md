@@ -81,6 +81,7 @@
 - 성능 향상은 Two-Tower 구조가 아닌 **Qwen 콘텐츠 임베딩**에서 옴 (ID 기반 Two-Tower ≈ BPR)
 - 애매한 자연어 쿼리에서는 전체 성능이 ~0.05로 떨어지고 모델 간 차이는 오차 범위 (아래 자연어 쿼리 평가)
 - 후보 생성 latency 77ms → 3.8ms (BM25 전체 스코어링 제거), 쿼리 보강을 1회 호출(로컬 2B 또는 Gemini flash-lite) + 날씨 API로 바꾸면 rerank 제외 전체 **~1.5~1.6초** (현재 ~8초)
+- 상품 임베딩에 이미지 추가는 텍스트 쿼리 검색·Two-Tower 모두 이득 미미 (상품 1,000개 검증)
 - RRF·epsilon 탐색은 효과 없음, SASRec은 NaN 버그 발견
 
 > 기존 평가는 train 구매 중 1개를 정답으로 써서 CF가 정답을 학습 때 이미 본 상태(**leak**).
@@ -167,6 +168,19 @@
 > 애매한 쿼리(v2)에서는 정답이 쿼리 후보에 거의 안 들어와 전체 성능이 ~0.05로 떨어짐. test 1,000명이라 오차 ±0.007 → 설정·모델 간 차이는 유의하지 않음.
 > 쿼리가 구체적일수록(v1) 최적 가중치가 임베딩/BM25 쪽으로 이동 → 쿼리 특성에 따라 가중치가 달라져야 함 (학습 기반 랭커 근거). 애매한 쿼리일수록 개인화 후보(∪ CF 50)가 정답 포함률을 보완.
 
+#### 이미지 효과 검증 — 상품 1,000개 (`eval_image_1k.py`, `eval_twotower_vl_1k.py`)
+> 위 실험은 모두 Qwen3-VL-Embedding에 **상품 텍스트만** 입력한 임베딩. 이미지(256×256)까지 넣은 VL 임베딩이 있는 상품 1,000개(app의 ChromaDB, 이미지 989개)로 같은 텍스트 + 이미지 유무만 다르게 비교.
+
+| 과제 | 지표 | 텍스트만 | 텍스트 + 이미지 (VL) |
+|---|---|---|---|
+| 텍스트 쿼리 검색 — 속성 쿼리 | HitRate@10 | 0.819 | 0.828 |
+| 텍스트 쿼리 검색 — 자연어 쿼리 | HitRate@10 | 0.413 | 0.386 |
+| Two-Tower 개인화 (1,000개 카탈로그로 재학습, 21,452 users) | Recall@12 | 0.3040 | 0.3069 |
+
+> 텍스트 쿼리 검색에서는 이미지 이득 없음 (쿼리가 텍스트라 텍스트끼리 매칭이 더 잘 맞음, 차이는 오차 범위). Two-Tower도 +1%로 오차 수준.
+> 참고: 같은 1,000개에서 콘텐츠 임베딩 유무는 Recall 0.203(ID+카테고리) → 0.304로 +50% — 이득은 콘텐츠 자체에서 오고, 설명이 잘 된 데이터에서는 이미지 추가 효과가 작음.
+> 한계: 1,000개는 오래된 기본 상품이라 신상품이 거의 없음 → 이미지가 가장 유리할 "설명이 부실한 신상품"·"사진 쿼리"는 별도 확인 필요.
+
 #### SASRec 재검증 (10,000 users)
 | Model | 기존 방식 재현 (1+99, 학습 target) HitRate@10 | future (전체 아이템) HitRate@10 |
 |---|---|---|
@@ -232,6 +246,8 @@
 | 7 | `evaluate_sasrec.py` | SASRec 원본 vs 수정판 | 25분 |
 | (옵션) | `BM25_CORPUS=full` | 6번에서 BM25 코퍼스에 종류/패턴/색상 추가 | 10분 |
 | (옵션) | `gen_nl_queries.py` → `QUERY_FILE=nl_queries.json` | Qwen3-VL-2B-Instruct로 자연어 요청 생성 후 평가 | 5분 |
+| (옵션) | `gen_nl_queries.py img1k_targets.json nl_queries_1k.json` → `eval_image_1k.py nl_queries_1k.json` | 이미지 유무 검색 비교 (상품 1,000개) | 3분 |
+| (옵션) | `eval_twotower_vl_1k.py` | Two-Tower 텍스트 vs VL 임베딩 (상품 1,000개) | 2분 |
 | (옵션) | `measure_latency.py` | `/recommend` 단계별 latency (현재 app vs 개선안) | 5분 |
 | (옵션) | `measure_e2e_latency.py` | 로컬 쿼리 보강 + 날씨 API 포함 전체 latency | 5분 |
 | (옵션) | `GEMINI_API_KEY=... python measure_gemini_latency.py` | Gemini 쿼리 보강 latency (단순 호출 vs 에이전트) | 5분 |
