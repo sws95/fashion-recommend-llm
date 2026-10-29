@@ -30,7 +30,9 @@ def sibling(a):
     return s[0] if s else None
 
 arg = sys.argv[1] if len(sys.argv) > 1 else '1'
-if len(arg) < 5:
+if arg == 'all':                                   # 다른 색상 상품이 있는 상품 전부 (디자인 중복 허용)
+    targets = [a for a in ids if os.path.exists(img(a)) and sibling(a)]
+elif len(arg) < 5:
     cands = [a for a in ids if os.path.exists(img(a)) and sibling(a)]
     cands = list({art.loc[a, 'product_code']: a for a in cands}.values())
     targets = list(np.random.RandomState(0).choice(cands, int(arg), replace=False))
@@ -61,6 +63,7 @@ for target in targets:
             rows.append({'정답': name(target), '쿼리': qname, '상품': ename, '순위': int((s > s[t]).sum()) + 1})
 
 df = pd.DataFrame(rows)
+df.to_csv(f'./image_query_{arg}_results.csv', index=False)
 pd.set_option('display.width', 250)
 pd.set_option('display.max_columns', 30)
 print("\n=== 정답 순위 (1,000개 중, 상품 임베딩 VL / 텍스트) ===")

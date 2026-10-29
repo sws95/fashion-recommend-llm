@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -33,7 +34,7 @@ BATCH_SIZE = 8192
 N_EPOCHS   = 5
 LR         = 1e-3
 L2_REG     = 1e-5
-K          = 12
+K          = int(os.environ.get("K", 12))              # H&M 대회 기준 12, 하이브리드 평가와 맞출 땐 K=10
 N_EVAL     = 10000
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

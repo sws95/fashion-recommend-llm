@@ -112,6 +112,11 @@ def run(name, content_np, eval_content_np=None):
             top = ((ut(u, U_FEAT[u], hist_c(u, C=C_eval)) @ I.T).topk(K).indices + 1).cpu().numpy()
             for row, t in zip(top, truth.values[s:s + 8192]):
                 h = len(t & set(row)); rec.append(h / min(len(t), K)); hit.append(h > 0)
+        # 유저 1,000명 하이브리드 평가(eval_user_hybrid_1k.py)용 벡터 저장
+        all_u = torch.arange(1, n_users, device=device)
+        U_all = torch.cat([ut(u, U_FEAT[u], hist_c(u, C=C_eval)) for u in all_u.split(65536)])
+        np.savez(f'./tt1k_{name}.npz', U=U_all.cpu().numpy(), I=I.cpu().numpy(),
+                 user_ids=np.array(list(uid_map)), item_ids=np.array(items))
     return np.mean(rec), np.mean(hit)
 
 results = {'ID + 카테고리 (콘텐츠 없음)': run('ID', np.zeros_like(txt[:, :1])),
